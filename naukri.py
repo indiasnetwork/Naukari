@@ -18,11 +18,11 @@ class Login(unittest.TestCase):
 		driver = self.driver
 		username = "email id" 				#Enter Your Email
 		password = "*************"			#Enter Your Password
-		mob = "987654321"					#Enter Phone Number
+		mob = "987654321"				#Enter Phone Number
 		
 		emailID				= "emailTxt"
 		passID				= "pwd1"
-		loginbuttonName		= "Login"
+		loginbuttonName			= "Login"
 		profXpath			= "//*[@id='colL']/div[2]/div[1]/a[1]"
 		editXpath			= "//*[@id='rPanel']/div/div[1]/div[2]/h1/a"
 		mobName				= "mobile"
