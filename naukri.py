@@ -31,6 +31,7 @@ class Login(unittest.TestCase):
 		saveXpath			= ".//*[@id='rPanel']/div/div/form/div[5]/div/button"
 		uploadNew                       = "uploadLink"
                 attachXpath                     = '//*[@id="attachCV"]'
+		cvID = "attachCV"
 		emailFieldElement	= WebDriverWait(driver, 5).until(lambda driver: driver.find_element_by_id(emailID))
 		passFieldElement	= WebDriverWait(driver, 5).until(lambda driver: driver.find_element_by_id(passID))
 		loginButtonElement	= WebDriverWait(driver, 5).until(lambda driver: driver.find_element_by_name(loginbuttonName))
@@ -59,13 +60,14 @@ class Login(unittest.TestCase):
 		self.driver.find_element_by_id("uploadLink").click()
 		for i in range(60):
 			try:
-			if self.is_element_present(By.ID, "attachCV"): break
+			if self.is_element_present(By.ID, cvID): break
 		except: pass
 		time.sleep(1)
 		else: self.fail("time out")
-		driver.find_element_by_id("attachCV").clear()
+		driver.find_element_by_id(cvID).clear()
 		time.sleep(1)
-		driver.find_element_by_id("attachCV").send_keys(""C:\\Resume.pdf")		#Update the Resume path
+		#Update the Resume path
+		driver.find_element_by_id(cvID).send_keys("C:\\Resume.pdf\\")
 		time.sleep(2)
 		driver.find_element_by_xpath("//button[@type='button']").click()
 		time.sleep(1)
