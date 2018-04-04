@@ -1,4 +1,5 @@
 # Daily Naukri Update
+[![license](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://github.com/navchandar/Naukri/blob/master/LICENSE) [![Code Climate](https://codeclimate.com/github/navchandar/Naukri.svg)](https://codeclimate.com/github/navchandar/Naukri)
 
 ### Selenium and Python powered automation script
 
