@@ -1,7 +1,8 @@
 #! python3
 # -*- coding: utf-8 -*-
 # Naukri Daily update - Using Chrome
-import re, os
+import re
+import os
 import sys
 import time
 import logging
@@ -12,7 +13,15 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import NoAlertPresentException
 
+# Add Path to your resume
 ResumePath = "Resume.pdf"
+# Add Path to your chrome driver
+ChromePath = os.getcwd()
+
+# Update your username and password before running
+username = "Type Your email ID Here"
+password = "Type Your Password Here"
+
 NaukriURL = "https://login.naukri.com/nLogin/Login.php"
 
 log_file_path = "naukri.log"
@@ -48,8 +57,7 @@ def GetElement(driver, elementTag, locator='ID'):
 
         elif locator == 'CSS':
             if is_element_present(driver, By.CSS_SELECTOR, elementTag):
-                return WebDriverWait(driver, 15).until(
-                    lambda driver: driver.find_element_by_css_selector(elementTag))
+                return WebDriverWait(driver, 15).until(lambda driver: driver.find_element_by_css_selector(elementTag))
             else:
                 print('%s Not Found.' % elementTag)
                 return None
@@ -73,20 +81,26 @@ def is_element_present(driver, how, what):
 
 
 def WaitTillElementPresent(driver, elementTag, locator='ID'):
-    '''Wait till element present. Max 60 seconds'''
-    for i in range(60):
+    '''Wait till element present. Max 30 seconds'''
+    result = False
+    driver.implicitly_wait(0)
+    for i in range(30):
         try:
             if locator == 'ID':
                 if is_element_present(driver, By.ID, elementTag):
+                    result = True
                     break
             elif locator == 'NAME':
                 if is_element_present(driver, By.NAME, elementTag):
+                    result = True
                     break
             elif locator == 'XPATH':
                 if is_element_present(driver, By.XPATH, elementTag):
+                    result = True
                     break
             elif locator == 'CSS':
                 if is_element_present(driver, By.CSS_SELECTORS, elementTag):
+                    result = True
                     break
         except Exception as e:
             print('Exception when WaitTillElementPresent : %s' % e)
@@ -94,6 +108,8 @@ def WaitTillElementPresent(driver, elementTag, locator='ID'):
         time.sleep(0.99)
     else:
         print("Timed out. Unable to find the Element: %s" % elementTag)
+    driver.implicitly_wait(3)
+    return result
 
 
 def tearDown(driver):
@@ -118,8 +134,9 @@ def tearDown(driver):
 
 
 def naukriLogin():
+    status = False
+    driver = None
     options = webdriver.ChromeOptions()
-    # Path to your chrome profile
     chromedriver = "chromedriver.exe"
     options.add_argument("--disable-notifications")
     options.add_argument("--start-maximized")       # ("--kiosk") for MAC
@@ -139,15 +156,13 @@ def naukriLogin():
                 print("Website Loaded Successfully.")
                 logging.info("Website Loaded Successfully.")
 
-            username = "Type Your email ID Here"
-            password = "Type Your Password Here"
-
             if is_element_present(driver, By.ID, "emailTxt"):
                 emailFieldElement = GetElement(driver, "emailTxt", locator='ID')
                 time.sleep(1)
                 passFieldElement = GetElement(driver, "pwd1", locator='ID')
                 time.sleep(1)
                 loginButton = driver.find_element_by_xpath("//*[@type='submit' and @value='Login']")
+
             elif is_element_present(driver, By.ID, "usernameField"):
                 emailFieldElement = GetElement(driver, "usernameField", locator='ID')
                 time.sleep(1)
@@ -158,7 +173,6 @@ def naukriLogin():
             else:
                 print('None of the elements found to login.')
                 logging.info('None of the elements found to login.')
-                return None
 
             if emailFieldElement is not None:
                 emailFieldElement.clear()
@@ -169,64 +183,88 @@ def naukriLogin():
                 loginButton.send_keys(Keys.ENTER)
 
                 # CheckPoint
-                WaitTillElementPresent(driver, 'dPic', locator='ID')
-                CheckPoint = GetElement(driver, 'dPic', locator='ID')
-                if CheckPoint:
-                    print('Login Successful')
-                    logging.info('Login Successful')
-                    return driver
+                result = WaitTillElementPresent(driver, 'search-jobs', locator='ID')
+                if result:
+                    CheckPoint = GetElement(driver, 'search-jobs', locator='ID')
+                    if CheckPoint:
+                        print('Login Successful')
+                        logging.info('Login Successful')
+                        status = True
+                        return (status, driver)
+                    else:
+                        print('Unknown Login Error')
+                        logging.info('Unknown Login Error')
+                        return (status, driver)
                 else:
-                    print('Unknown Login Error')
-                    logging.info('Unknown Login Error')
-                    return None
+                    return (status, driver)
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             lineNo = str(exc_tb.tb_lineno)
             logging.info('Error logging in Naukri: %s : %s at Line %s.\n'% (type(e), e, lineNo))
             print('Error logging in Naukri: %s : %s at Line %s.' % (type(e), e, lineNo))
-            tearDown(driver)
-            return None
+            return (status, driver)
 
     else:
         print('Chrome installation/driver not found.')
         logging.info('Chrome installation/driver not found')
-        return None
+        return (status, driver)
 
 
 def UpdateProfile(driver):
     try:
         mob = "123456789" # Type your mobile number here
-        mobName = "mobile"
-        profeditXpath = "//a[contains(text(), ' Snapshot')]"
-        saveXpath = "//button[@ type=\"submit\"][@value=\"Save Changes\"]"
-
+        mobXpath = "//*[@name='mobile'] | //*[@id='mob_number']"
+        profeditXpath = "//a[contains(text(), 'UPDATE PROFILE')] | //a[contains(text(), ' Snapshot')]"
+        saveXpath = "//button[@ type='submit'][@value='Save Changes'] | //*[@id='saveBasicDetailsBtn']"
+        editXpath = "//em[text()='Edit']"
         profElement = GetElement(driver, profeditXpath, locator='XPATH')
         profElement.click()
         driver.implicitly_wait(2)
 
-        mobFieldElement = GetElement(driver, mobName, locator='NAME')
-        mobFieldElement.clear()
-        mobFieldElement.send_keys(mob)
-        driver.implicitly_wait(2)
+        if is_element_present(driver, By.XPATH, editXpath):
+            editElement = GetElement(driver, editXpath, locator='XPATH')
+            editElement.click()
 
-        saveFieldElement = GetElement(driver, saveXpath, locator='XPATH')
-        saveFieldElement.send_keys(Keys.ENTER)
-        driver.implicitly_wait(3)
+            mobFieldElement = GetElement(driver, mobXpath, locator='XPATH')
+            mobFieldElement.clear()
+            mobFieldElement.send_keys(mob)
+            driver.implicitly_wait(2)
 
-        if is_element_present(driver, By.ID, "confirmMessage"):
-            logging.info('Mob num Update Successful')
-            print('Mob num Update Successful')
-        else:
-            logging.info('Mob num Update failed')
-            print('Mob num Update failed')
+            saveFieldElement = GetElement(driver, saveXpath, locator='XPATH')
+            saveFieldElement.send_keys(Keys.ENTER)
+            driver.implicitly_wait(3)
+            if is_element_present(driver, By.XPATH, "//*[text()='today']"):
+                logging.info('Mob num Update Successful')
+                print('Mob num Update Successful')
+            else:
+                logging.info('Mob num Update failed')
+                print('Mob num Update failed')
+
+        elif is_element_present(driver, By.XPATH, saveXpath):
+            mobFieldElement = GetElement(driver, mobXpath, locator='XPATH')
+            mobFieldElement.clear()
+            mobFieldElement.send_keys(mob)
+            driver.implicitly_wait(2)
+
+            saveFieldElement = GetElement(driver, saveXpath, locator='XPATH')
+            saveFieldElement.send_keys(Keys.ENTER)
+            driver.implicitly_wait(3)
+
+            if is_element_present(driver, By.ID, "confirmMessage"):
+                logging.info('Mob num Update Successful')
+                print('Mob num Update Successful')
+            else:
+                logging.info('Mob num Update failed')
+                print('Mob num Update failed')
+
+        time.sleep(5)
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         lineNo = str(exc_tb.tb_lineno)
         logging.info('Error Updating Mob num: %s : %s at Line %s.\n' % (type(e), e, lineNo))
         print('Error Updating Mob num: %s : %s at Line %s.' % (type(e), e, lineNo))
-        return None
 
 
 def UploadResume(driver):
@@ -260,7 +298,6 @@ def UploadResume(driver):
             lineNo = str(exc_tb.tb_lineno)
             logging.info('Error while uploading Resume : %s : %s at Line %s.'% (type(e), e, lineNo))
             print('Error while uploading Resume : %s : %s at Line %s.' % (type(e), e, lineNo))
-            pass
 
         time.sleep(2)
 
@@ -298,14 +335,14 @@ def UploadResume(driver):
             lineNo = str(exc_tb.tb_lineno)
             logging.info('Error while updating resume text : %s : %s at Line %s.'% (type(e), e, lineNo))
             print('Error while updating resume text: %s : %s at Line %s.' % (type(e), e, lineNo))
-            pass
 
 
 def main():
     logging.info('-----Naukri.qa.py Script Run Begin-----')
+    driver = None
     try:
-        driver = naukriLogin()
-        if driver:
+        status, driver = naukriLogin()
+        if status:
             UpdateProfile(driver)
 
             if os.path.exists(ResumePath):
@@ -313,14 +350,15 @@ def main():
             else:
                 print('Resume not found at %s ' % ResumePath)
                 logging.info('Resume not found at %s ' % ResumePath)
-        
-            tearDown(driver)
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         lineNo = str(exc_tb.tb_lineno)
         logging.info('Error Updating Naukri Profile: %s : %s at Line %s.'% (type(e), e, lineNo))
         print('Error Updating Naukri Profile: %s : %s at Line %s.' % (type(e), e, lineNo))
+
+    finally:
+        tearDown(driver)
 
     logging.info('-----Naukri.qa.py Script Run Ended-----\n')
 
