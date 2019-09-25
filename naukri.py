@@ -269,15 +269,11 @@ def UpdateProfile(driver):
 
 def UploadResume(driver):
         try:
-            uploadID = "uploadLink"
             attachCVID = "attachCV"
             saveXpath = "//button[@type='button']"
-            CheckPointID = "attachCVMsg"
+            CheckPointID = "attachCVMsgBox"
 
             driver.get('https://my.naukri.com/Profile/view')
-            uploadElem = GetElement(driver, uploadID, locator='ID')
-            uploadElem.click()
-
             AttachElement = GetElement(driver, attachCVID, locator='ID')
             AttachElement.send_keys(ResumePath)
             time.sleep(5)
