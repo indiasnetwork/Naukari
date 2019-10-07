@@ -1,0 +1,6 @@
+2019-10-07 09:28:59,742    : -----Naukri.qa.py Script Run Begin-----
+2019-10-07 09:28:59,743    : Chrome installation/driver not found
+2019-10-07 09:28:59,743    : Error : <class 'AttributeError'> : 'NoneType' object has no attribute 'close' at Line 122.
+2019-10-07 09:28:59,743    : Error quitting: <class 'AttributeError'> : 'NoneType' object has no attribute 'quit' at Line 131.
+2019-10-07 09:28:59,743    : -----Naukri.qa.py Script Run Ended-----
+
