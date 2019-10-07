@@ -10,6 +10,22 @@ Use this script to update your Naukri Profile on schedule everyday, this can be 
 
 In order to use this, you need to have Python 3 and Selenium webdriver installed in your machine.
 
+
+## Contribute
+
+Contributions are always welcome!
+
+Please read the [contribution guidelines](contributing.md) first.
+
+
+## Contributors
+
+ - Naveenchandar ([navchandar](https://github.com/navchandar))
+ - Jay Bhavsar ([jbhv12](https://github.com/jbhv12))
+
+
+## Links
+
 [Python 3+](https://www.python.org/downloads/)
 
 [Selenium 3+](http://seleniumhq.org/download/)
