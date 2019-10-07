@@ -12,9 +12,14 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import NoAlertPresentException
+from PyPDF2 import PdfFileReader, PdfFileWriter
+import random,string,io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 # Add Path to your resume
-ResumePath = "Resume.pdf"
+originalResumePath = "original_resume.pdf"
+ResumePath = "modified_resume.pdf"
 # Add Path to your chrome driver
 ChromePath = os.getcwd()
 
@@ -266,6 +271,30 @@ def UpdateProfile(driver):
         logging.info('Error Updating Mob num: %s : %s at Line %s.\n' % (type(e), e, lineNo))
         print('Error Updating Mob num: %s : %s at Line %s.' % (type(e), e, lineNo))
 
+def UpdateResume():
+    #random text with with random location and size
+    txt = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(random.randint(1,10)))
+    xloc = random.randint(700,1000) #this ensures that text is 'out of page'
+    fsize = random.randint(1,10)
+
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=letter)
+    can.setFont("Helvetica", fsize) 
+    can.drawString(xloc, 100, "lon")
+    can.save()
+
+    packet.seek(0)
+    new_pdf = PdfFileReader(packet)
+    existing_pdf = PdfFileReader(open(originalResumePath, "rb"))
+    output = PdfFileWriter()
+
+    output.addPage(existing_pdf.getPage(0))
+    page = existing_pdf.getPage(1) #merging new pdf with last page of my existing pdf. I have 2 page resume. 1th page gets the last page. replacing 1 with 0 would also work as text is 'out of page'
+    page.mergePage(new_pdf.getPage(0))
+    output.addPage(page)
+    outputStream =open(ResumePath, "wb")
+    output.write(outputStream) 
+    outputStream.close()
 
 def UploadResume(driver):
         try:
@@ -341,7 +370,8 @@ def main():
         if status:
             UpdateProfile(driver)
 
-            if os.path.exists(ResumePath):
+            if os.path.exists(originalResumePath):
+                UpdateResume()
                 UploadResume(driver)
             else:
                 print('Resume not found at %s ' % ResumePath)
