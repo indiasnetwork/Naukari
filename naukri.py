@@ -1,6 +1,6 @@
 #! python3
 # -*- coding: utf-8 -*-
-# Naukri Daily update - Using Chrome
+"""Naukri Daily update - Using Chrome"""
 import re
 import os
 import sys
@@ -16,17 +16,21 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 import random,string,io
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from webdriver_manager.chrome import ChromeDriverManager
 
-# Add Path to your resume
+# Add folder Path of your resume
 originalResumePath = "original_resume.pdf"
-ResumePath = "modified_resume.pdf"
-# Add Path to your chrome driver
-ChromePath = os.getcwd()
+# Add Path where modified resume should be saved
+modifiedResumePath = "modified_resume.pdf"
 
-# Update your username and password before running
+# Update your naukri username and password here before running
 username = "Type Your email ID Here"
 password = "Type Your Password Here"
+mob = "1234567890" # Type your mobile number here
 
+# ----- No other changes required ----- 
+
+# Set login URL
 NaukriURL = "https://login.naukri.com/nLogin/Login.php"
 
 log_file_path = "naukri.log"
@@ -34,50 +38,62 @@ logging.basicConfig(level=logging.INFO,
                     filename=log_file_path,
                     format='%(asctime)s    : %(message)s')
 # logging.disable(logging.CRITICAL)
+os.environ['WDM_LOG_LEVEL'] = '0'
+
+
+def log_msg(message):
+    """Print to console and store to Log"""
+    print(message)
+    logging.info(message)
+
+
+def catch(error):
+    """Method to catch errors and log error details"""
+    exc_type, exc_obj, exc_tb = sys.exc_info()
+    lineNo = str(exc_tb.tb_lineno)
+    msg = '%s : %s at Line %s.' % (type(error), error, lineNo)
+    print(msg)
+    logging.error(msg)
 
 
 def GetElement(driver, elementTag, locator='ID'):
-    '''Wait max 15 secs for element and then select when it is available'''
+    """Wait max 15 secs for element and then select when it is available"""
     try:
         if locator == 'ID':
             if is_element_present(driver, By.ID, elementTag):
                 return WebDriverWait(driver, 15).until(lambda driver: driver.find_element_by_id(elementTag))
             else:
-                print('%s Not Found.' % elementTag)
+                log_msg('%s Not Found.' % elementTag)
                 return None
 
         elif locator == 'NAME':
             if is_element_present(driver, By.NAME, elementTag):
                 return WebDriverWait(driver, 15).until(lambda driver: driver.find_element_by_name(elementTag))
             else:
-                print('%s Not Found.' % elementTag)
+                log_msg('%s Not Found.' % elementTag)
                 return None
 
         elif locator == 'XPATH':
             if is_element_present(driver, By.XPATH, elementTag):
                 return WebDriverWait(driver, 15).until(lambda driver: driver.find_element_by_xpath(elementTag))
             else:
-                print('%s Not Found.' % elementTag)
+                log_msg('%s Not Found.' % elementTag)
                 return None
 
         elif locator == 'CSS':
             if is_element_present(driver, By.CSS_SELECTOR, elementTag):
                 return WebDriverWait(driver, 15).until(lambda driver: driver.find_element_by_css_selector(elementTag))
             else:
-                print('%s Not Found.' % elementTag)
+                log_msg('%s Not Found.' % elementTag)
                 return None
 
     except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        lineNo = str(exc_tb.tb_lineno)
-        logging.info('Error identifying element - %s : %s : %s at Line %s.' %
-                     (elementTag, type(e), e, lineNo))
-        print('Error identifying element - %s : %s : %s at Line %s.' %
-              (elementTag, type(e), e, lineNo))
-        return None
+        catch(e)
+    return None
 
 
 def is_element_present(driver, how, what):
+    """Returns True if element is present"""
     try:
         driver.find_element(by=how, value=what)
     except NoSuchElementException:
@@ -85,11 +101,11 @@ def is_element_present(driver, how, what):
     return True
 
 
-def WaitTillElementPresent(driver, elementTag, locator='ID'):
-    '''Wait till element present. Max 30 seconds'''
+def WaitTillElementPresent(driver, elementTag, locator='ID', timeout=30):
+    """Wait till element present. Default 30 seconds"""
     result = False
     driver.implicitly_wait(0)
-    for i in range(30):
+    for i in range(timeout):
         try:
             if locator == 'ID':
                 if is_element_present(driver, By.ID, elementTag):
@@ -108,11 +124,11 @@ def WaitTillElementPresent(driver, elementTag, locator='ID'):
                     result = True
                     break
         except Exception as e:
-            print('Exception when WaitTillElementPresent : %s' % e)
+            log_msg('Exception when WaitTillElementPresent : %s' % e)
             pass
         time.sleep(0.99)
     else:
-        print("Timed out. Unable to find the Element: %s" % elementTag)
+        log_msg("Timed out. Element not found: %s" % elementTag)
     driver.implicitly_wait(3)
     return result
 
@@ -120,117 +136,104 @@ def WaitTillElementPresent(driver, elementTag, locator='ID'):
 def tearDown(driver):
     try:
         driver.close()
-        logging.info('Driver Closed Successfully')
+        log_msg('Driver Closed Successfully')
     except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        lineNo = str(exc_tb.tb_lineno)
-        logging.info('Error : %s : %s at Line %s.' % (type(e), e, lineNo))
+        catch(e)
         pass
 
     try:
         driver.quit()
-        logging.info('Driver Quit Successfully')
+        log_msg('Driver Quit Successfully')
     except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        lineNo = str(exc_tb.tb_lineno)
-        logging.info('Error quitting: %s : %s at Line %s.' % (type(e), e, lineNo))
-        print('Error quitting: %s : %s at Line %s.' % (type(e), e, lineNo))
+        catch(e)
         pass
 
 
 def naukriLogin():
+    """ Open Chrome browser and Login to Naukri.com"""
     status = False
     driver = None
     options = webdriver.ChromeOptions()
-    chromedriver = "chromedriver.exe"
     options.add_argument("--disable-notifications")
     options.add_argument("--start-maximized")       # ("--kiosk") for MAC
     options.add_argument("--disable-popups")
+    options.add_argument("--disable-gpu")
 
-    if os.path.exists(ChromePath) and os.path.exists(chromedriver):
-        try:
-            driver = webdriver.Chrome(chrome_options=options, executable_path=chromedriver)
-            driver.maximize_window()
-            print("Google Chrome Launched!")
-            logging.info("Google Chrome Launched!")
+    try:
+        # updated to use ChromeDriverManager to match correct chromedriver automatically
+        driver = webdriver.Chrome(executable_path=ChromeDriverManager().install(), options=options)
+        log_msg("Google Chrome Launched!")
 
-            driver.implicitly_wait(3)
-            driver.get(NaukriURL)
-            
-            if 'Naukri.com' in driver.title:
-                print("Website Loaded Successfully.")
-                logging.info("Website Loaded Successfully.")
+        driver.implicitly_wait(3)
+        driver.get(NaukriURL)
+        
+        if 'naukri' in driver.title.lower():
+            log_msg("Website Loaded Successfully.")
 
-            if is_element_present(driver, By.ID, "emailTxt"):
-                emailFieldElement = GetElement(driver, "emailTxt", locator='ID')
-                time.sleep(1)
-                passFieldElement = GetElement(driver, "pwd1", locator='ID')
-                time.sleep(1)
-                loginButton = driver.find_element_by_xpath("//*[@type='submit' and @value='Login']")
+        if is_element_present(driver, By.ID, "emailTxt"):
+            emailFieldElement = GetElement(driver, "emailTxt", locator='ID')
+            time.sleep(1)
+            passFieldElement = GetElement(driver, "pwd1", locator='ID')
+            time.sleep(1)
+            loginButton = driver.find_element_by_xpath("//*[@type='submit' and @value='Login']")
 
-            elif is_element_present(driver, By.ID, "usernameField"):
-                emailFieldElement = GetElement(driver, "usernameField", locator='ID')
-                time.sleep(1)
-                passFieldElement = GetElement(driver, "passwordField", locator='ID')
-                time.sleep(1)
-                loginButton = driver.find_element_by_xpath('//*[@type="submit"]')
+        elif is_element_present(driver, By.ID, "usernameField"):
+            emailFieldElement = GetElement(driver, "usernameField", locator='ID')
+            time.sleep(1)
+            passFieldElement = GetElement(driver, "passwordField", locator='ID')
+            time.sleep(1)
+            loginButton = driver.find_element_by_xpath('//*[@type="submit"]')
 
-            else:
-                print('None of the elements found to login.')
-                logging.info('None of the elements found to login.')
+        else:
+            log_msg('None of the elements found to login.')
 
-            if emailFieldElement is not None:
-                emailFieldElement.clear()
-                emailFieldElement.send_keys(username)
-                passFieldElement.clear()
-                passFieldElement.send_keys(password)
-                time.sleep(1)
-                loginButton.send_keys(Keys.ENTER)
+        if emailFieldElement is not None:
+            emailFieldElement.clear()
+            emailFieldElement.send_keys(username)
+            passFieldElement.clear()
+            passFieldElement.send_keys(password)
+            time.sleep(1)
+            loginButton.send_keys(Keys.ENTER)
 
-                # CheckPoint
-                result = WaitTillElementPresent(driver, 'search-jobs', locator='ID')
-                if result:
-                    CheckPoint = GetElement(driver, 'search-jobs', locator='ID')
-                    if CheckPoint:
-                        print('Login Successful')
-                        logging.info('Login Successful')
-                        status = True
-                        return (status, driver)
-                    else:
-                        print('Unknown Login Error')
-                        logging.info('Unknown Login Error')
-                        return (status, driver)
+            # Added click to Skip button
+            print('Checking Skip button')
+            if WaitTillElementPresent(driver, "//*[text() = 'SKIP AND CONTINUE']", locator='XPATH', timeout=10):
+                GetElement(driver, "//*[text() = 'SKIP AND CONTINUE']", locator='XPATH').click()
+
+            # CheckPoint to verify login
+            if WaitTillElementPresent(driver, 'search-jobs', locator='ID', timeout=40):
+                CheckPoint = GetElement(driver, 'search-jobs', locator='ID')
+                if CheckPoint:
+                    log_msg('Naukri Login Successful')
+                    status = True
+                    return (status, driver)
                 else:
+                    log_msg('Unknown Login Error')
                     return (status, driver)
 
-        except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            lineNo = str(exc_tb.tb_lineno)
-            logging.info('Error logging in Naukri: %s : %s at Line %s.\n'% (type(e), e, lineNo))
-            print('Error logging in Naukri: %s : %s at Line %s.' % (type(e), e, lineNo))
-            return (status, driver)
-
-    else:
-        print('Chrome installation/driver not found.')
-        logging.info('Chrome installation/driver not found')
-        return (status, driver)
+    except Exception as e:
+        catch(e)
+    return (status, driver)
 
 
 def UpdateProfile(driver):
     try:
-        mob = "123456789" # Type your mobile number here
         mobXpath = "//*[@name='mobile'] | //*[@id='mob_number']"
-        profeditXpath = "//a[contains(text(), 'UPDATE PROFILE')] | //a[contains(text(), ' Snapshot')]"
+        profeditXpath = "//a[contains(text(), 'UPDATE PROFILE')] | //a[contains(text(), ' Snapshot')] | //a[contains(@href, 'profile') and contains(@href, 'home')]"
         saveXpath = "//button[@ type='submit'][@value='Save Changes'] | //*[@id='saveBasicDetailsBtn']"
         editXpath = "//em[text()='Edit']"
+
+        WaitTillElementPresent(driver, profeditXpath, locator='XPATH', timeout=20)
         profElement = GetElement(driver, profeditXpath, locator='XPATH')
         profElement.click()
         driver.implicitly_wait(2)
-
+        
+        WaitTillElementPresent(driver, editXpath + " | " + saveXpath, locator='XPATH', timeout=20)
         if is_element_present(driver, By.XPATH, editXpath):
             editElement = GetElement(driver, editXpath, locator='XPATH')
             editElement.click()
-
+            
+            WaitTillElementPresent(driver, mobXpath, locator='XPATH', timeout=20)
             mobFieldElement = GetElement(driver, mobXpath, locator='XPATH')
             mobFieldElement.clear()
             mobFieldElement.send_keys(mob)
@@ -239,12 +242,12 @@ def UpdateProfile(driver):
             saveFieldElement = GetElement(driver, saveXpath, locator='XPATH')
             saveFieldElement.send_keys(Keys.ENTER)
             driver.implicitly_wait(3)
+            
+            WaitTillElementPresent(driver, "//*[text()='today']", locator='XPATH', timeout=10)
             if is_element_present(driver, By.XPATH, "//*[text()='today']"):
-                logging.info('Mob num Update Successful')
-                print('Mob num Update Successful')
+                log_msg('Profile Update Successful')
             else:
-                logging.info('Mob num Update failed')
-                print('Mob num Update failed')
+                log_msg('Profile Update Failed')
 
         elif is_element_present(driver, By.XPATH, saveXpath):
             mobFieldElement = GetElement(driver, mobXpath, locator='XPATH')
@@ -256,137 +259,104 @@ def UpdateProfile(driver):
             saveFieldElement.send_keys(Keys.ENTER)
             driver.implicitly_wait(3)
 
+            WaitTillElementPresent(driver, "confirmMessage", locator='ID', timeout=10)
             if is_element_present(driver, By.ID, "confirmMessage"):
-                logging.info('Mob num Update Successful')
-                print('Mob num Update Successful')
+                log_msg('Profile Update Successful')
             else:
-                logging.info('Mob num Update failed')
-                print('Mob num Update failed')
+                log_msg('Profile Update Failed')
 
         time.sleep(5)
 
     except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        lineNo = str(exc_tb.tb_lineno)
-        logging.info('Error Updating Mob num: %s : %s at Line %s.\n' % (type(e), e, lineNo))
-        print('Error Updating Mob num: %s : %s at Line %s.' % (type(e), e, lineNo))
+        catch(e)
+
 
 def UpdateResume():
-    #random text with with random location and size
-    txt = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(random.randint(1,10)))
-    xloc = random.randint(700,1000) #this ensures that text is 'out of page'
-    fsize = random.randint(1,10)
+    try:
+        #random text with with random location and size
+        txt = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(random.randint(1,10)))
+        xloc = random.randint(700,1000) #this ensures that text is 'out of page'
+        fsize = random.randint(1,10)
 
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=letter)
-    can.setFont("Helvetica", fsize) 
-    can.drawString(xloc, 100, "lon")
-    can.save()
+        packet = io.BytesIO()
+        can = canvas.Canvas(packet, pagesize=letter)
+        can.setFont("Helvetica", fsize) 
+        can.drawString(xloc, 100, "lon")
+        can.save()
 
-    packet.seek(0)
-    new_pdf = PdfFileReader(packet)
-    existing_pdf = PdfFileReader(open(originalResumePath, "rb"))
-    output = PdfFileWriter()
+        packet.seek(0)
+        new_pdf = PdfFileReader(packet)
+        existing_pdf = PdfFileReader(open(originalResumePath, "rb"))
+        pagecount = existing_pdf.getNumPages()
+        print('Found %s pages in PDF' % pagecount)
 
-    output.addPage(existing_pdf.getPage(0))
-    page = existing_pdf.getPage(1) #merging new pdf with last page of my existing pdf. I have 2 page resume. 1th page gets the last page. replacing 1 with 0 would also work as text is 'out of page'
-    page.mergePage(new_pdf.getPage(0))
-    output.addPage(page)
-    outputStream =open(ResumePath, "wb")
-    output.write(outputStream) 
-    outputStream.close()
+        output = PdfFileWriter()
+        # Merging new pdf with last page of my existing pdf
+        # Updated to get last page for pdf files with varying page count
+        for pageNum in range(pagecount-1):
+            output.addPage(existing_pdf.getPage(pageNum))
 
-def UploadResume(driver):
-        try:
-            attachCVID = "attachCV"
-            saveXpath = "//button[@type='button']"
-            CheckPointID = "attachCVMsgBox"
+        page = existing_pdf.getPage(pagecount-1)
+        page.mergePage(new_pdf.getPage(0))
+        output.addPage(page)
+        # save the new resume file
+        with open(modifiedResumePath, "wb") as outputStream:
+            output.write(outputStream)
+        print('Saved modified PDF : %s' % modifiedResumePath)
+        return os.path.abspath(modifiedResumePath)
+    except Exception as e:
+        catch(e)
+    return os.path.abspath(originalResumePath)
+    
 
-            driver.get('https://my.naukri.com/Profile/view')
-            AttachElement = GetElement(driver, attachCVID, locator='ID')
-            AttachElement.send_keys(ResumePath)
-            time.sleep(5)
 
-            CheckPoint = GetElement(driver, CheckPointID, locator='ID')
-            if 'success' in CheckPoint.text:
-                print('Resume Document Upload Successful')
-                logging.info('Resume Document Upload Successful')
-            else:
-                print('Resume Document Upload failed')
-                logging.info('Resume Document Upload failed')
+def UploadResume(driver, resumePath):
+    try:
+        attachCVID = "attachCV"
+        CheckPointID = "attachCVMsgBox"
+        saveXpath = "//button[@type='button']"
 
+        driver.get('https://www.naukri.com/mnjuser/profile')
+        WaitTillElementPresent(driver, attachCVID, locator='ID', timeout=10)
+        AttachElement = GetElement(driver, attachCVID, locator='ID')
+        AttachElement.send_keys(resumePath)
+
+        WaitTillElementPresent(driver, CheckPointID, locator='ID', timeout=30)
+        CheckPoint = GetElement(driver, CheckPointID, locator='ID')
+        if CheckPoint and 'success' in CheckPoint.text.lower():
+            log_msg('Resume Document Upload Successful')
+        else:
+            log_msg('Resume Document Upload failed')
+
+        if WaitTillElementPresent(driver, saveXpath, locator='ID', timeout=5):
             saveElement = GetElement(driver, saveXpath, locator='XPATH')
             saveElement.click()
 
-        except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            lineNo = str(exc_tb.tb_lineno)
-            logging.info('Error while uploading Resume : %s : %s at Line %s.'% (type(e), e, lineNo))
-            print('Error while uploading Resume : %s : %s at Line %s.' % (type(e), e, lineNo))
-
-        time.sleep(2)
-
-        try:
-            typeCss = "a > strong"
-            pasteID = "copyPaste"
-
-            driver.get('https://my.naukri.com/Profile/view')
-            uploadElem = GetElement(driver, uploadID, locator='ID')
-            uploadElem.click()
-            time.sleep(1)
-            typeElement = GetElement(driver, typeCss, locator='CSS')
-            typeElement.click()
-            pasteElement = GetElement(driver, pasteID, locator='ID')
-            pasteElement.clear()
-            time.sleep(1)
-            pasteElement.send_keys(u'''\n Add Your Resume Text Content \n''')
-
-            saveElement = GetElement(driver, saveXpath, locator='XPATH')
-            saveElement.click()
-            time.sleep(1)
-            driver.implicitly_wait(2)
-
-            confirmID = "confirmMessage"
-            CheckPoint = GetElement(driver, confirmID, locator='ID')
-            if "Your naukri profile has been updated " in CheckPoint.text:
-                print('Resume Text Update Successful')
-                logging.info('Resume Text Update Successful')
-            else:
-                print('Resume Text Update failed')
-                logging.info('Resume Text Update failed')
-
-        except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            lineNo = str(exc_tb.tb_lineno)
-            logging.info('Error while updating resume text : %s : %s at Line %s.'% (type(e), e, lineNo))
-            print('Error while updating resume text: %s : %s at Line %s.' % (type(e), e, lineNo))
+    except Exception as e:
+        catch(e)
+    time.sleep(2)
 
 
 def main():
-    logging.info('-----Naukri.qa.py Script Run Begin-----')
+    log_msg('-----Naukri.py Script Run Begin-----')
     driver = None
     try:
         status, driver = naukriLogin()
         if status:
             UpdateProfile(driver)
-
             if os.path.exists(originalResumePath):
-                UpdateResume()
-                UploadResume(driver)
+                resumePath = UpdateResume()
+                UploadResume(driver, resumePath)
             else:
-                print('Resume not found at %s ' % ResumePath)
-                logging.info('Resume not found at %s ' % ResumePath)
+                log_msg('Resume not found at %s ' % originalResumePath)
 
     except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        lineNo = str(exc_tb.tb_lineno)
-        logging.info('Error Updating Naukri Profile: %s : %s at Line %s.'% (type(e), e, lineNo))
-        print('Error Updating Naukri Profile: %s : %s at Line %s.' % (type(e), e, lineNo))
+        catch(e)
 
     finally:
         tearDown(driver)
 
-    logging.info('-----Naukri.qa.py Script Run Ended-----\n')
+    log_msg('-----Naukri.py Script Run Ended-----\n')
 
 
 if __name__ == '__main__':
